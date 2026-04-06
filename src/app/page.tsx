@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './globals.css';
-import { Newspaper, Send, Layout, Settings, Loader2, Calendar } from 'lucide-react';
+import { Newspaper, Send, Layout, Settings, Loader2, Calendar, Globe, Plus, Check } from 'lucide-react';
 
 export default function Dashboard() {
   const [url, setUrl] = useState('');
@@ -10,18 +10,50 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [posting, setPosting] = useState(false);
   const [scheduleTime, setScheduleTime] = useState('');
+  
+  // News Aggregator State
+  const [sources, setSources] = useState<any[]>([]);
+  const [selectedSource, setSelectedSource] = useState<any>(null);
+  const [articles, setArticles] = useState<any[]>([]);
+  const [fetchingNews, setFetchingNews] = useState(false);
 
-  const handleGenerate = async () => {
-    if (!url) return alert('Vui lòng nhập URL tin tức!');
+  useEffect(() => {
+    fetchSources();
+  }, []);
+
+  const fetchSources = async () => {
+    const res = await fetch('/api/news/list');
+    const data = await res.json();
+    if (data.sources) setSources(data.sources);
+  };
+
+  const fetchArticles = async (sourceId: string) => {
+    setFetchingNews(true);
+    try {
+      const res = await fetch(`/api/news/list?sourceId=${sourceId}`);
+      const data = await res.json();
+      if (data.items) setArticles(data.items);
+      setSelectedSource(data.source);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setFetchingNews(false);
+    }
+  };
+
+  const handleGenerate = async (newsUrl?: string) => {
+    const targetUrl = newsUrl || url;
+    if (!targetUrl) return alert('Vui lòng nhập hoặc chọn URL tin tức!');
     setLoading(true);
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: targetUrl }),
         headers: { 'Content-Type': 'application/json' },
       });
       const data = await res.json();
       if (data.caption) setCaption(data.caption);
+      if (!newsUrl) setUrl(targetUrl);
     } catch (err) {
       console.error(err);
     } finally {
@@ -32,7 +64,6 @@ export default function Dashboard() {
   const handlePublishOrSchedule = async () => {
     if (!caption) return alert('Vui lòng soạn nội dung trước!');
     setPosting(true);
-    
     try {
       const res = await fetch('/api/post', {
         method: 'POST',
@@ -43,19 +74,15 @@ export default function Dashboard() {
           status: scheduleTime ? 'scheduled' : 'posted'
         }),
       });
-
       const data = await res.json();
       if (data.success) {
-        alert(scheduleTime ? `Đã hẹn giờ đăng bài vào ${scheduleTime}!` : 'Đã đăng bài thành công lên các mạng xã hội!');
+        alert(scheduleTime ? `Đã hẹn giờ đăng bài vào ${scheduleTime}!` : 'Đã đăng bài thành công!');
         setCaption('');
         setUrl('');
         setScheduleTime('');
-      } else {
-        alert('Có lỗi xảy ra: ' + data.error);
       }
     } catch (err) {
       console.error(err);
-      alert('Không thể kết nối đến máy chủ.');
     } finally {
       setPosting(false);
     }
@@ -66,126 +93,116 @@ export default function Dashboard() {
       <header className="header">
         <h1 className="logo">SOCIAL AUTO-BOT</h1>
         <div className="actions">
-          <button className="btn btn-primary" id="btn-sync-accounts">Connect Account</button>
+          <button className="btn" style={{ background: '#222', marginRight: '1rem' }}><Globe size={18} /></button>
+          <button className="btn btn-primary">Connect Account</button>
         </div>
       </header>
 
-      <div className="grid">
-        <div className="card">
-          <p className="card-title">Total Posts</p>
-          <p className="card-value">24</p>
+      {/* News Aggregator Section */}
+      <section className="composer-section" style={{ marginBottom: '2rem', background: 'transparent', padding: 0, border: 'none' }}>
+        <h2 className="card-title" style={{ color: 'white', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Globe size={20} /> International News Browser
+        </h2>
+        <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
+          {sources.map(s => (
+            <div 
+              key={s.id} 
+              onClick={() => fetchArticles(s.id)}
+              className={`card ${selectedSource?.id === s.id ? 'active-source' : ''}`}
+              style={{ minWidth: '150px', cursor: 'pointer', textAlign: 'center', padding: '1rem' }}
+            >
+              <img src={s.icon} alt={s.name} style={{ width: '24px', height: '24px', marginBottom: '0.5rem' }} />
+              <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>{s.name}</p>
+            </div>
+          ))}
         </div>
-        <div className="card">
-          <p className="card-title">Platforms Active</p>
-          <p className="card-value">4</p>
-        </div>
-        <div className="card">
-          <p className="card-title">AI Generated</p>
-          <p className="card-value">18</p>
-        </div>
-      </div>
+
+        {articles.length > 0 && (
+          <div className="grid" style={{ marginTop: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
+            {articles.slice(0, 6).map((item, idx) => (
+              <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.title}</h3>
+                  <p style={{ fontSize: '0.75rem', color: '#999' }}>{new Date(item.pubDate).toLocaleDateString()}</p>
+                </div>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ marginTop: '1rem', fontSize: '0.8rem', padding: '0.5rem' }}
+                  onClick={() => handleGenerate(item.link)}
+                >
+                  Pick & Generate
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="composer-section">
         <h2 className="card-title" style={{ color: 'white', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Layout size={20} /> Content Composer
         </h2>
         
-        <label htmlFor="news-url" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
           Fetch from News URL
         </label>
         <input 
           type="text" 
-          id="news-url" 
           className="input-field" 
-          placeholder="https://news.ycombinator.com/item?id=..." 
+          placeholder="Hoặc dán link tin tức vào đây..." 
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
         
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-          <button 
-            className="btn btn-primary" 
-            onClick={handleGenerate} 
-            disabled={loading}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <Newspaper size={18} />} 
-            {loading ? 'Generating...' : 'Generate from AI'}
-          </button>
-          <button className="btn" style={{ background: '#222', color: 'white', border: '1px solid #333' }}>
-            Customize Image
+          <button className="btn btn-primary" onClick={() => handleGenerate()} disabled={loading}>
+            {loading ? <Loader2 className="animate-spin" /> : <Newspaper size={18} />} {loading ? 'Generating...' : 'Generate from AI'}
           </button>
         </div>
 
-        <label htmlFor="caption" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
           Post Caption
         </label>
         <textarea 
-          id="caption" 
           className="input-field" 
           rows={5} 
-          placeholder="What's on your mind?"
+          placeholder="AI sẽ soạn nội dung tại đây..."
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
         ></textarea>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid #222', paddingTop: '1.5rem' }}>
           <div style={{ flex: 1 }}>
-            <label htmlFor="schedule-time" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
-              <Calendar size={16} /> Schedule Time (Optional)
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
+              <Calendar size={16} /> Schedule Time
             </label>
             <input 
               type="datetime-local" 
-              id="schedule-time" 
               className="input-field" 
               style={{ marginBottom: 0 }}
               value={scheduleTime}
               onChange={(e) => setScheduleTime(e.target.value)}
             />
           </div>
-          <button 
-            className="btn btn-primary" 
-            onClick={handlePublishOrSchedule} 
-            disabled={posting}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem 2rem', marginTop: '1.5rem' }}
-          >
-            {posting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            {posting ? (scheduleTime ? 'Scheduling...' : 'Publishing...') : (scheduleTime ? 'Schedule Post' : 'Publish Now')}
+          <button className="btn btn-primary" onClick={handlePublishOrSchedule} disabled={posting}>
+            {posting ? <Loader2 className="animate-spin" /> : <Send size={18} />} {scheduleTime ? 'Schedule Post' : 'Publish Now'}
           </button>
         </div>
       </section>
 
-      <section style={{ marginTop: '3rem' }}>
-        <h2 className="card-title" style={{ color: 'white', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Settings size={20} /> Recent Schedules
-        </h2>
-        <div className="card" style={{ padding: '0' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '1px solid #222' }}>
-                <th style={{ padding: '1rem' }}>Content Preview</th>
-                <th style={{ padding: '1rem' }}>Platform</th>
-                <th style={{ padding: '1rem' }}>Status</th>
-                <th style={{ padding: '1rem' }}>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={{ borderBottom: '1px solid #222' }}>
-                <td style={{ padding: '1rem', color: '#999' }}>Tiêu đề tin tức mới nhất về công nghệ AI...</td>
-                <td style={{ padding: '1rem' }}>FB, IG, X</td>
-                <td style={{ padding: '1rem' }}><span style={{ color: '#10b981' }}>Posted</span></td>
-                <td style={{ padding: '1rem', color: '#999' }}>2 giờ trước</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '1rem', color: '#999' }}>Bản cập nhật mới nhất từ thị trường tài chính...</td>
-                <td style={{ padding: '1rem' }}>FB, X</td>
-                <td style={{ padding: '1rem' }}>Scheduled</td>
-                <td style={{ padding: '1rem', color: '#999' }}>Hôm nay, 21:00</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <style jsx>{`
+        .active-source {
+          border-color: #3b82f6 !important;
+          background: rgba(59, 130, 246, 0.1) !important;
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

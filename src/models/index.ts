@@ -26,9 +26,18 @@ const NewsSourceSchema = new Schema({
   url: { type: String, required: true },
   type: { type: String, enum: ['rss', 'scraping'], default: 'rss' },
   active: { type: Boolean, default: true },
+  autoPost: { type: Boolean, default: false },
   lastChecked: { type: Date },
+}, { timestamps: true });
+
+const ProcessedArticleSchema = new Schema({
+  title: { type: String, required: true },
+  link: { type: String, required: true, unique: true },
+  sourceId: { type: String },
+  status: { type: String, enum: ['processed', 'posted', 'ignored'], default: 'processed' },
 }, { timestamps: true });
 
 export const SocialAccount = models.SocialAccount || model('SocialAccount', SocialAccountSchema);
 export const Post = models.Post || model('Post', PostSchema);
 export const NewsSource = models.NewsSource || model('NewsSource', NewsSourceSchema);
+export const ProcessedArticle = models.ProcessedArticle || model('ProcessedArticle', ProcessedArticleSchema);

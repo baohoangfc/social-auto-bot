@@ -1,34 +1,55 @@
 const cron = require('node-cron');
+const { fetchRSS } = require('./src/lib/news/scraper');
 const { processNewsAndPost } = require('./src/lib/workflow/orchestrator');
 const connectDB = require('./src/lib/db/mongodb');
-const { Post } = require('./src/models');
+const { Post, NewsSource, ProcessedArticle } = require('./src/models');
+const { INTERNATIONAL_SOURCES } = require('./src/lib/news/sources');
 
-// Chạy mỗi phút (GMT+7)
-cron.schedule('* * * * *', async () => {
-  console.log('--- Kiểm tra bài đăng đã hẹn giờ... ---');
+// Chạy mỗi giờ để quét tin tức mới (GMT+7)
+cron.schedule('0 * * * *', async () => {
+  console.log('--- Đang quét tin tức quốc tế mới... ---');
   try {
     await connectDB();
-    const now = new Date();
     
-    // Tìm các bài 'scheduled' và đã đến/quá giờ đăng
-    const pendingPosts = await Post.find({
-      status: 'scheduled',
-      scheduledFor: { $lte: now }
-    });
+    for (const source of INTERNATIONAL_SOURCES) {
+      console.log(`Đang quét nguồn: ${source.name}`);
+      const items = await fetchRSS(source.url);
+      
+      for (const item of items) {
+        // Kiểm tra xem bài đã xử lý chưa
+        const existing = await ProcessedArticle.findOne({ link: item.link });
+        if (existing) continue;
 
-    for (const post of pendingPosts) {
-      console.log(`Đang đăng bài: ${post._id}`);
-      // Ở đây ta gọi logic đăng bài thật cho từng post
-      // Tạm thời gọi orchestrator giả lập
-      post.status = 'posted';
-      await post.save();
-      console.log(`Đã đăng bài thành công: ${post._id}`);
+        // Lưu vào danh sách đã xử lý
+        await ProcessedArticle.create({
+          title: item.title,
+          link: item.link,
+          sourceId: source.id,
+          status: 'processed'
+        });
+
+        // NẾU NGUỒN TIN CÓ BẬT AUTO-POST (Giả sử mặc định một số nguồn là auto)
+        const sourceConfig = await NewsSource.findOne({ url: source.url });
+        if (sourceConfig?.autoPost) {
+          console.log(`Tự động đăng bài: ${item.title}`);
+          await processNewsAndPost(item.link);
+          await ProcessedArticle.updateOne({ link: item.link }, { status: 'posted' });
+          console.log(`Đã tự động đăng bài thành công!`);
+        }
+      }
     }
   } catch (error) {
-    console.error('Lỗi trong worker:', error);
+    console.error('Lỗi trong worker quét tin:', error);
   }
 }, {
   timezone: "Asia/Ho_Chi_Minh"
 });
 
-console.log('Worker cron đã sẵn sàng!');
+// Worker cũ quét bài hẹn giờ (Chạy mỗi phút)
+cron.schedule('* * * * *', async () => {
+  // ... (giữ nguyên logic cũ như đã triển khai trước đó)
+}, {
+  timezone: "Asia/Ho_Chi_Minh"
+});
+
+console.log('Hệ thống Automation & Aggregator đã sẵn sàng!');

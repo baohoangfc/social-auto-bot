@@ -9,12 +9,13 @@ export async function generateCaption(newsContent: string) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `
-    Dựa trên nội dung tin tức sau đây, hãy viết một caption thu hút để đăng lên mạng xã hội (Facebook/Instagram/X).
+    Dựa trên nội dung tin tức ĐẶC BIỆT NÓNG HỔI sau đây, hãy viết một bản tin CỰC KỲ THU HÚT, GIẬT GÂN và GÂY CHÚ Ý để đăng lên mạng xã hội.
     Nội dung tin tức: ${newsContent}
     Yêu cầu:
-    - Ngôn ngữ: Tiếng Việt
-    - Phong cách: Hấp dẫn, ngắn gọn, có sử dụng hashtag phù hợp.
-    - Không bao gồm các từ nhạy cảm hoặc vi phạm chính sách.
+    - Ngôn ngữ: Tiếng Việt, phong cách sắc sảo, kịch tính.
+    - Làm nổi bật các con số (giá Vàng, Bitcoin) hoặc tình tiết quan trọng (Chiến sự, Chính trị).
+    - Tạo cảm giác cấp bách hoặc tầm ảnh hưởng lớn đến người đọc.
+    - Sử dụng các hashtag mạnh mẽ (#BreakingNews #KinhTe #ChienTranh #Bitcoin #Vang).
   `;
 
   const result = await model.generateContent(prompt);
