@@ -18,9 +18,17 @@ export async function generateCaption(newsContent: string) {
     - Sử dụng các hashtag mạnh mẽ (#BreakingNews #KinhTe #ChienTranh #Bitcoin #Vang).
   `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text();
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (error: any) {
+    console.error("Gemini AI Error:", error);
+    if (error.message?.includes('429') || error.status === 429) {
+      return "⚠️ [HỆ THỐNG BẬN] AI đang quá tải yêu cầu. Bạn vui lòng đợi khoảng 30-60 giây rồi nhấn thử lại nhé! (Do hạn mức tài khoản Google miễn phí đang tạm đầy)";
+    }
+    throw error;
+  }
 }
 
 export async function generateImagePrompt(newsContent: string) {
