@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import './globals.css';
-import { Newspaper, Send, Layout, Settings, Loader2 } from 'lucide-react';
+import { Newspaper, Send, Layout, Settings, Loader2, Calendar } from 'lucide-react';
 
 export default function Dashboard() {
   const [url, setUrl] = useState('');
   const [caption, setCaption] = useState('');
   const [loading, setLoading] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [scheduleTime, setScheduleTime] = useState('');
 
   const handleGenerate = async () => {
     if (!url) return alert('Vui lòng nhập URL tin tức!');
@@ -28,14 +29,36 @@ export default function Dashboard() {
     }
   };
 
-  const handlePublish = async () => {
+  const handlePublishOrSchedule = async () => {
     if (!caption) return alert('Vui lòng soạn nội dung trước!');
     setPosting(true);
-    // Logic gọi API đăng bài...
-    setTimeout(() => {
+    
+    try {
+      const res = await fetch('/api/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: caption,
+          scheduledFor: scheduleTime || null,
+          status: scheduleTime ? 'scheduled' : 'posted'
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert(scheduleTime ? `Đã hẹn giờ đăng bài vào ${scheduleTime}!` : 'Đã đăng bài thành công lên các mạng xã hội!');
+        setCaption('');
+        setUrl('');
+        setScheduleTime('');
+      } else {
+        alert('Có lỗi xảy ra: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Không thể kết nối đến máy chủ.');
+    } finally {
       setPosting(false);
-      alert('Đã đăng bài thành công (Mô phỏng)!');
-    }, 2000);
+    }
   };
 
   return (
@@ -106,15 +129,28 @@ export default function Dashboard() {
           onChange={(e) => setCaption(e.target.value)}
         ></textarea>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid #222', paddingTop: '1.5rem' }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="schedule-time" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
+              <Calendar size={16} /> Schedule Time (Optional)
+            </label>
+            <input 
+              type="datetime-local" 
+              id="schedule-time" 
+              className="input-field" 
+              style={{ marginBottom: 0 }}
+              value={scheduleTime}
+              onChange={(e) => setScheduleTime(e.target.value)}
+            />
+          </div>
           <button 
             className="btn btn-primary" 
-            onClick={handlePublish} 
+            onClick={handlePublishOrSchedule} 
             disabled={posting}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem 2rem', marginTop: '1.5rem' }}
           >
             {posting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            {posting ? 'Publishing...' : 'Publish Now'}
+            {posting ? (scheduleTime ? 'Scheduling...' : 'Publishing...') : (scheduleTime ? 'Schedule Post' : 'Publish Now')}
           </button>
         </div>
       </section>

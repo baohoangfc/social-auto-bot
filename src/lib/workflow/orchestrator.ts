@@ -33,10 +33,15 @@ export async function processNewsAndPost(url: string) {
     try {
       if (account.platform === 'facebook') {
         const client = new MetaClient(account.accessToken);
-        // PageId should be stored in account or config
+        // PageId nên được lưu trong account hoặc config
         await client.postToFacebookPage('YOUR_PAGE_ID', caption);
       } else if (account.platform === 'x') {
-        const client = new XClient(account.accessToken);
+        const client = new XClient(
+          process.env.X_API_KEY!,
+          process.env.X_API_SECRET!,
+          account.accessToken, // Đây là User Access Token trong DB
+          (account as any).accessSecret // Đây là User Access Secret trong DB
+        );
         await client.postTweet(caption);
       }
       // ... thêm các platform khác
