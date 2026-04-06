@@ -56,8 +56,9 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.caption) setCaption(data.caption);
       if (!newsUrl) setUrl(targetUrl);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setCaption(`⚠️ [LỖI HỆ THỐNG] Không thể xử lý tin tức này.\n\nChi tiết: ${err.message || 'Lỗi kết nối hoặc trang web chặn bot.'}`);
     } finally {
       setLoading(false);
     }
