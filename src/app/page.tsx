@@ -17,6 +17,8 @@ export default function Dashboard() {
   const [articles, setArticles] = useState<any[]>([]);
   const [fetchingNews, setFetchingNews] = useState(false);
 
+  const isErrorCaption = caption.includes('[HỆ THỐNG BẬN]');
+
   useEffect(() => {
     fetchSources();
   }, []);
@@ -184,7 +186,12 @@ export default function Dashboard() {
               onChange={(e) => setScheduleTime(e.target.value)}
             />
           </div>
-          <button className="btn btn-primary" onClick={handlePublishOrSchedule} disabled={posting}>
+          <button 
+            className="btn btn-primary" 
+            onClick={handlePublishOrSchedule} 
+            disabled={posting || isErrorCaption || !caption}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem 2rem', marginTop: '1.5rem' }}
+          >
             {posting ? <Loader2 className="animate-spin" /> : <Send size={18} />} {scheduleTime ? 'Schedule Post' : 'Publish Now'}
           </button>
         </div>
