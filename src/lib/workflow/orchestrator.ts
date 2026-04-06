@@ -32,9 +32,13 @@ export async function processNewsAndPost(url: string) {
   for (const account of accounts) {
     try {
       if (account.platform === 'facebook') {
-        const client = new MetaClient(account.accessToken);
-        // PageId nên được lưu trong account hoặc config
-        await client.postToFacebookPage('YOUR_PAGE_ID', caption);
+        const client = new MetaClient();
+        await client.postToFacebookPage(
+          process.env.FB_PAGE_ID!,
+          process.env.FB_PAGE_TOKEN!,
+          caption,
+          url || undefined
+        );
       } else if (account.platform === 'x') {
         const client = new XClient(
           process.env.X_API_KEY!,

@@ -8,7 +8,12 @@ export async function POST(req: Request) {
     if (!url) return NextResponse.json({ error: 'URL is required' }, { status: 400 });
 
     const news = await scrapeNews(url);
-    if (!news) return NextResponse.json({ error: 'Could not scrape news' }, { status: 404 });
+    if (!news || !news.content) {
+      return NextResponse.json({ 
+        error: 'Không thể đọc được nội dung tin tức từ link này.', 
+        detail: 'Nội dung bài báo đang trống hoặc bị chặn.' 
+      }, { status: 400 });
+    }
 
     const caption = await generateCaption(news.content);
 

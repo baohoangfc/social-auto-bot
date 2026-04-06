@@ -29,9 +29,13 @@ export async function scrapeNews(url: string) {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    // Đây là logic đơn giản, thực tế cần tùy chỉnh cho từng trang báo
+    // Cải tiến selector để đọc được đa dạng các trang báo quốc tế (BBC, CNN, Al Jazeera, v.v.)
     const title = $('h1').text().trim();
-    const content = $('article, .article-content, .content').text().trim();
+    const content = $('article, .article-content, .content, main, .story-body, .ssrcss-11r1m41-RichTextComponent').text().trim();
+
+    if (!title || !content) {
+      throw new Error('Không thể trích xuất nội dung từ bài báo này.');
+    }
 
     return {
       title,
