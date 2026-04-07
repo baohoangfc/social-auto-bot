@@ -45,6 +45,11 @@ export class XClient {
       body: JSON.stringify(request_data.data),
     });
 
-    return response.json();
+    const resData = await response.json();
+    if (!response.ok) {
+      console.error('X API Error:', resData);
+      throw new Error(`X API Error: ${resData.detail || resData.message || response.statusText}`);
+    }
+    return resData;
   }
 }

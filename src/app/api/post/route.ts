@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongodb';
 import { Post } from '@/models';
-import { processNewsAndPost } from '@/lib/workflow/orchestrator';
+import { processNewsAndPost, postToSpecificPlatform } from '@/lib/workflow/orchestrator';
 
 export async function POST(req: Request) {
   try {
@@ -22,11 +22,16 @@ export async function POST(req: Request) {
       
       // GỌI THỰC THI ĐĂNG BÀI THẬT
       try {
-        // Ta có thể gọi orchestrator ở đây để xử lý bài đăng (Quick publish)
-        // Trong dự án thật, bạn nên dùng queue để tránh timeout
-        // await processNewsAndPost(...); 
-      } catch (e) {
+        const platforms = ['x', 'facebook'];
+        for (const platform of platforms) {
+          await postToSpecificPlatform(platform, content);
+        }
+      } catch (e: any) {
         console.error("Lỗi đăng bài thực tế:", e);
+        return NextResponse.json({ 
+          error: 'Lỗi khi đăng bài lên mạng xã hội', 
+          detail: e.message 
+        }, { status: 500 });
       }
 
       return NextResponse.json({ success: true, post: newPost });
