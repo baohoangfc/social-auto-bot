@@ -20,21 +20,30 @@ export async function POST(req: Request) {
         platforms: ['x', 'facebook'] 
       });
       
-      // GỌI THỰC THI ĐĂNG BÀI THẬT
-      try {
-        const platforms = ['x', 'facebook'];
-        for (const platform of platforms) {
+      // GỌI THỰC THI ĐĂNG BÀI THẬT (Tách biệt từng nền tảng)
+      const platforms = ['x', 'facebook'];
+      const results = [];
+      
+      for (const platform of platforms) {
+        try {
           await postToSpecificPlatform(platform, content);
+          results.push({ platform, status: 'success' });
+        } catch (e: any) {
+          console.error(`Lỗi đăng ${platform}:`, e.message);
+          results.push({ platform, status: 'failed', error: e.message });
         }
-      } catch (e: any) {
-        console.error("Lỗi đăng bài thực tế:", e);
+      }
+
+      // Kiểm tra nếu tất cả đều thất bại thì mới trả về lỗi 500
+      const anySuccess = results.some(r => r.status === 'success');
+      if (!anySuccess) {
         return NextResponse.json({ 
-          error: 'Lỗi khi đăng bài lên mạng xã hội', 
-          detail: e.message 
+          error: 'Tất cả các nền tảng đều thất bại', 
+          details: results 
         }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true, post: newPost });
+      return NextResponse.json({ success: true, post: newPost, results });
     }
 
     // Nếu là hẹn giờ
