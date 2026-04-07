@@ -1,18 +1,18 @@
 const cron = require('node-cron');
 const { fetchRSS } = require('./src/lib/news/scraper');
-const { processNewsAndPost } = require('./src/lib/workflow/orchestrator');
+const { runAutoPilotForPlatform } = require('./src/lib/workflow/orchestrator');
 const connectDB = require('./src/lib/db/mongodb');
 const { Post, NewsSource, ProcessedArticle } = require('./src/models');
 const { INTERNATIONAL_SOURCES } = require('./src/lib/news/sources');
 
-// Chạy mỗi giờ để quét tin tức mới (GMT+7)
+// 1. Quét tin tức quốc tế mới (Mỗi giờ) - AGGREGATOR ONLY
 cron.schedule('0 * * * *', async () => {
-  console.log('--- Đang quét tin tức quốc tế mới... ---');
+  console.log('--- [Aggregator] Đang quét tin tức quốc tế mới... ---');
   try {
     await connectDB();
     
     for (const source of INTERNATIONAL_SOURCES) {
-      console.log(`Đang quét nguồn: ${source.name}`);
+      console.log(`[Aggregator] Đang quét nguồn: ${source.name}`);
       const items = await fetchRSS(source.url);
       
       for (const item of items) {
@@ -27,29 +27,38 @@ cron.schedule('0 * * * *', async () => {
           sourceId: source.id,
           status: 'processed'
         });
-
-        // NẾU NGUỒN TIN CÓ BẬT AUTO-POST (Giả sử mặc định một số nguồn là auto)
-        const sourceConfig = await NewsSource.findOne({ url: source.url });
-        if (sourceConfig?.autoPost) {
-          console.log(`Tự động đăng bài: ${item.title}`);
-          await processNewsAndPost(item.link);
-          await ProcessedArticle.updateOne({ link: item.link }, { status: 'posted' });
-          console.log(`Đã tự động đăng bài thành công!`);
-        }
       }
     }
+    console.log('--- [Aggregator] Quét tin hoàn tất. ---');
   } catch (error) {
-    console.error('Lỗi trong worker quét tin:', error);
+    console.error('[Aggregator] Lỗi:', error);
   }
 }, {
   timezone: "Asia/Ho_Chi_Minh"
 });
 
-// Worker cũ quét bài hẹn giờ (Chạy mỗi phút)
-cron.schedule('* * * * *', async () => {
-  // ... (giữ nguyên logic cũ như đã triển khai trước đó)
+// 2. Tự động đăng lên X (Mỗi 2 giờ)
+cron.schedule('0 */2 * * *', async () => {
+  console.log('--- [Cron] Trigger automation for X ---');
+  try {
+    await runAutoPilotForPlatform('x');
+  } catch (error) {
+    console.error('[Cron] X error:', error);
+  }
 }, {
   timezone: "Asia/Ho_Chi_Minh"
 });
 
-console.log('Hệ thống Automation & Aggregator đã sẵn sàng!');
+// 3. Tự động đăng lên Facebook (Mỗi 3 giờ)
+cron.schedule('0 */3 * * *', async () => {
+  console.log('--- [Cron] Trigger automation for Facebook ---');
+  try {
+    await runAutoPilotForPlatform('facebook');
+  } catch (error) {
+    console.error('[Cron] Facebook error:', error);
+  }
+}, {
+  timezone: "Asia/Ho_Chi_Minh"
+});
+
+console.log('Hệ thống Auto-Pilot (X: 2h, FB: 3h) đã sẵn sàng!');

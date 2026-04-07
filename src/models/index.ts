@@ -35,6 +35,7 @@ const ProcessedArticleSchema = new Schema({
   link: { type: String, required: true, unique: true },
   sourceId: { type: String },
   status: { type: String, enum: ['processed', 'posted', 'ignored'], default: 'processed' },
+  postedPlatforms: [{ type: String, enum: ['facebook', 'instagram', 'x', 'tiktok'] }],
 }, { timestamps: true });
 
 export const SocialAccount = models.SocialAccount || model('SocialAccount', SocialAccountSchema);
