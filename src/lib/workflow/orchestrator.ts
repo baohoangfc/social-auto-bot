@@ -38,27 +38,37 @@ export async function processNewsAndPost(url: string) {
 }
 
 export async function postToSpecificPlatform(platform: string, content: string, url?: string) {
+  // Kiểm tra tài khoản từ DB hoặc Environment Variables (để ưu tiên chạy ngay trên Railway)
   const account = await SocialAccount.findOne({ platform });
-  if (!account) {
-    console.warn(`No active account found for platform: ${platform}`);
-    return;
-  }
+  
+  const xToken = process.env.X_ACCESS_TOKEN || account?.accessToken;
+  const xSecret = process.env.X_ACCESS_TOKEN_SECRET || account?.accessSecret;
+  const fbToken = process.env.FB_PAGE_TOKEN || account?.accessToken;
+  const fbPageId = process.env.FB_PAGE_ID;
 
   try {
     if (platform === 'facebook') {
+      if (!fbToken || !fbPageId) {
+        console.warn("Facebook credentials missing in env or DB");
+        return;
+      }
       const client = new MetaClient();
       await client.postToFacebookPage(
-        process.env.FB_PAGE_ID!,
-        process.env.FB_PAGE_TOKEN!,
+        fbPageId,
+        fbToken,
         content,
         url || undefined
       );
     } else if (platform === 'x') {
+      if (!xToken || !xSecret) {
+        console.warn("X credentials missing in env or DB");
+        return;
+      }
       const client = new XClient(
         process.env.X_API_KEY!,
         process.env.X_API_SECRET!,
-        account.accessToken,
-        (account as any).accessSecret
+        xToken,
+        xSecret
       );
       await client.postTweet(content);
     }
