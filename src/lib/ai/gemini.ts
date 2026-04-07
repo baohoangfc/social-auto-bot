@@ -6,7 +6,7 @@ export async function generateCaption(newsContent: string) {
   if (!process.env.GEMINI_API_KEY) {
     return "[MOCK] Đây là caption AI tự động soạn từ tin tức của bạn: Một bước tiến mới trong công nghệ! #AI #Innovation";
   }
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
   const prompt = `
     Dựa trên nội dung tin tức ĐẶC BIỆT NÓNG HỔI sau đây, hãy viết một bản tin CỰC KỲ THU HÚT, GIẬT GÂN và GÂY CHÚ Ý để đăng lên mạng xã hội.
@@ -32,7 +32,7 @@ export async function generateCaption(newsContent: string) {
 }
 
 export async function generateImagePrompt(newsContent: string) {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
   const prompt = `
     Dựa trên nội dung tin tức sau, hãy tạo một prompt tiếng Anh chi tiết để dùng cho AI sinh ảnh (DALL-E/Midjourney).
