@@ -43,14 +43,15 @@ export async function postToSpecificPlatform(platform: string, content: string, 
   
   const xToken = process.env.X_ACCESS_TOKEN || account?.accessToken;
   const xSecret = process.env.X_ACCESS_TOKEN_SECRET || account?.accessSecret;
+  const xApiKey = process.env.X_API_KEY;
+  const xApiSecret = process.env.X_API_SECRET;
   const fbToken = process.env.FB_PAGE_TOKEN || account?.accessToken;
   const fbPageId = process.env.FB_PAGE_ID;
 
   try {
     if (platform === 'facebook') {
       if (!fbToken || !fbPageId) {
-        console.warn("Facebook credentials missing in env or DB");
-        return;
+        throw new Error('facebook credentials not configured');
       }
       const client = new MetaClient();
       await client.postToFacebookPage(
@@ -61,12 +62,14 @@ export async function postToSpecificPlatform(platform: string, content: string, 
       );
     } else if (platform === 'x') {
       if (!xToken || !xSecret) {
-        console.warn("X credentials missing in env or DB");
-        return;
+        throw new Error('x credentials not configured');
+      }
+      if (!xApiKey || !xApiSecret) {
+        throw new Error('x app credentials not configured');
       }
       const client = new XClient(
-        process.env.X_API_KEY!,
-        process.env.X_API_SECRET!,
+        xApiKey,
+        xApiSecret,
         xToken,
         xSecret
       );
