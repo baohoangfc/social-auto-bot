@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongodb';
 import { Post } from '@/models';
-import { processNewsAndPost, postToSpecificPlatform } from '@/lib/workflow/orchestrator';
+import { postToSpecificPlatform } from '@/lib/workflow/orchestrator';
 
 export async function POST(req: Request) {
   try {
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     if (!scheduledFor || status === 'posted') {
       const newPost = await Post.create({
         content,
-        status: 'posted',
+        status: 'draft',
         platforms: ['x', 'facebook'] 
       });
       
@@ -28,22 +28,54 @@ export async function POST(req: Request) {
         try {
           await postToSpecificPlatform(platform, content);
           results.push({ platform, status: 'success' });
-        } catch (e: any) {
-          console.error(`Lỗi đăng ${platform}:`, e.message);
-          results.push({ platform, status: 'failed', error: e.message });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`Lỗi đăng ${platform}:`, errorMessage);
+          results.push({ platform, status: 'failed', error: errorMessage });
         }
       }
 
-      // Kiểm tra nếu tất cả đều thất bại thì mới trả về lỗi 500
       const anySuccess = results.some(r => r.status === 'success');
+      newPost.status = anySuccess ? 'posted' : 'failed';
+      newPost.logs = results.map((result) => ({
+        message: result.status === 'success'
+          ? `[${result.platform}] posted successfully`
+          : `[${result.platform}] ${result.error}`,
+        timestamp: new Date(),
+      }));
+      await newPost.save();
+
+      // Kiểm tra nếu tất cả đều thất bại thì mới trả về lỗi 500
       if (!anySuccess) {
+        const credentialHints = results
+          .filter((r) => r.error)
+          .map((r) => {
+            if (r.error.includes('Unauthorized')) {
+              return `[${r.platform}] Access token/secret không hợp lệ hoặc đã hết hạn.`;
+            }
+            if (r.error.includes('Application has been deleted')) {
+              return `[${r.platform}] App Facebook đã bị xoá hoặc không còn hoạt động.`;
+            }
+            if (r.error.includes('credentials not configured')) {
+              return `[${r.platform}] Chưa cấu hình credentials trong ENV hoặc SocialAccount.`;
+            }
+            return `[${r.platform}] ${r.error}`;
+          });
+
         return NextResponse.json({ 
+          success: false,
           error: 'Tất cả các nền tảng đều thất bại', 
-          details: results 
-        }, { status: 500 });
+          details: results,
+          hints: credentialHints,
+          postId: newPost._id,
+        }, { status: 200 });
       }
 
-      return NextResponse.json({ success: true, post: newPost, results });
+      return NextResponse.json({
+        success: true,
+        post: newPost,
+        results,
+      });
     }
 
     // Nếu là hẹn giờ

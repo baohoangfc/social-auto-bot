@@ -81,6 +81,14 @@ export default function Dashboard() {
         }),
       });
       const data = await res.json();
+      if (!res.ok || data.success === false) {
+        const hints = Array.isArray(data.hints) ? `\n\nGợi ý:\n- ${data.hints.join('\n- ')}` : '';
+        const details = Array.isArray(data.details)
+          ? `\n\nChi tiết:\n- ${data.details.map((d: { platform: string; error?: string }) => `${d.platform}: ${d.error || 'Unknown error'}`).join('\n- ')}`
+          : '';
+        alert(`${data.error || 'Đăng bài thất bại'}${hints}${details}`);
+        return;
+      }
       if (data.success) {
         alert(scheduleTime ? `Đã hẹn giờ đăng bài vào ${scheduleTime}!` : 'Đã đăng bài thành công!');
         setCaption('');
