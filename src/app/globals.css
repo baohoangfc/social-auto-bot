@@ -1,11 +1,11 @@
 :root {
-  --bg-color: #050505;
-  --card-bg: #111111;
+  --bg-color: #060814;
+  --card-bg: rgba(14, 18, 36, 0.7);
   --text-primary: #ffffff;
-  --text-secondary: #999999;
-  --accent-color: #3b82f6;
-  --accent-glow: rgba(59, 130, 246, 0.3);
-  --border-color: #222222;
+  --text-secondary: #a0aec0;
+  --accent-color: #5b8cff;
+  --accent-glow: rgba(91, 140, 255, 0.35);
+  --border-color: rgba(148, 163, 184, 0.2);
   --success-color: #10b981;
   --error-color: #ef4444;
 }
@@ -17,32 +17,43 @@
 }
 
 body {
-  background-color: var(--bg-color);
+  background:
+    radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.25) 0%, transparent 30%),
+    radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.2) 0%, transparent 25%),
+    var(--bg-color);
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   line-height: 1.6;
+  min-height: 100vh;
 }
 
 .dashboard-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 2rem 1.25rem 3rem;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
 }
 
 .logo {
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #fff, #666);
+  background: linear-gradient(135deg, #fff, #8ab3ff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.hero-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: 0.2rem;
 }
 
 .grid {
@@ -57,6 +68,7 @@ body {
   border-radius: 1rem;
   padding: 1.5rem;
   transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
 }
 
 .card:hover {
@@ -78,35 +90,53 @@ body {
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .btn-primary {
-  background: var(--accent-color);
+  background: linear-gradient(135deg, #4f7dff, #8b5cf6);
   color: white;
+  box-shadow: 0 10px 25px rgba(79, 125, 255, 0.3);
 }
 
 .btn-primary:hover {
-  opacity: 0.9;
   transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(79, 125, 255, 0.35);
+}
+
+.btn-ghost {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: var(--border-color);
+  color: #dbeafe;
 }
 
 .composer-section {
-  margin-top: 3rem;
+  margin-top: 2rem;
   background: var(--card-bg);
   border-radius: 1.5rem;
   padding: 2rem;
   border: 1px solid var(--border-color);
+  backdrop-filter: blur(8px);
+}
+
+.composer-section-plain {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-top: 1.25rem;
 }
 
 .input-field {
   width: 100%;
-  background: #000;
+  background: rgba(5, 10, 24, 0.75);
   border: 1px solid var(--border-color);
   color: white;
   padding: 1rem;
@@ -118,4 +148,77 @@ body {
 .input-field:focus {
   outline: none;
   border-color: var(--accent-color);
+  box-shadow: 0 0 0 4px rgba(91, 140, 255, 0.15);
+}
+
+.card-title-main {
+  color: #fff;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.source-row {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.stat-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 0.9rem;
+  padding: 0.85rem 1rem;
+}
+
+.stat-card p {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.stat-card strong {
+  font-size: 0.95rem;
+}
+
+.platform-pills {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.platform-pills span {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  border-radius: 9999px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid var(--border-color);
+  color: #e2e8f0;
+}
+
+@media (max-width: 900px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actions {
+    width: 100%;
+    display: flex;
+    gap: 0.5rem;
+  }
 }

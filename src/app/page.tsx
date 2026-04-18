@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import './globals.css';
-import { Newspaper, Send, Layout, Settings, Loader2, Calendar, Globe, Plus, Check } from 'lucide-react';
+import { Newspaper, Send, Layout, Loader2, Calendar, Globe, Sparkles, Twitter, Facebook } from 'lucide-react';
 
 export default function Dashboard() {
   const [url, setUrl] = useState('');
@@ -90,7 +90,19 @@ export default function Dashboard() {
         return;
       }
       if (data.success) {
-        alert(scheduleTime ? `Đã hẹn giờ đăng bài vào ${scheduleTime}!` : 'Đã đăng bài thành công!');
+        if (data.partialFailure && Array.isArray(data.results)) {
+          const failed = data.results.filter((r: { status: string }) => r.status === 'failed');
+          const hints = Array.isArray(data.hints) && data.hints.length > 0
+            ? `\n\nGợi ý:\n- ${data.hints.join('\n- ')}`
+            : '';
+          alert(
+            `Đăng thành công một phần. Nền tảng lỗi: ${failed
+              .map((f: { platform: string }) => f.platform)
+              .join(', ') || 'không xác định'}${hints}`
+          );
+        } else {
+          alert(scheduleTime ? `Đã hẹn giờ đăng bài vào ${scheduleTime}!` : 'Đã đăng bài thành công!');
+        }
         setCaption('');
         setUrl('');
         setScheduleTime('');
@@ -105,19 +117,37 @@ export default function Dashboard() {
   return (
     <div className="dashboard-container">
       <header className="header">
-        <h1 className="logo">SOCIAL AUTO-BOT</h1>
+        <div>
+          <h1 className="logo">SOCIAL AUTO-BOT</h1>
+          <p className="hero-subtitle">Auto create & publish social content in one place</p>
+        </div>
         <div className="actions">
-          <button className="btn" style={{ background: '#222', marginRight: '1rem' }}><Globe size={18} /></button>
-          <button className="btn btn-primary">Connect Account</button>
+          <button className="btn btn-ghost"><Globe size={16} /> Global Feed</button>
+          <button className="btn btn-primary"><Sparkles size={16} /> Connect Account</button>
         </div>
       </header>
 
+      <section className="stats-row">
+        <div className="stat-card">
+          <p>Publishing Channels</p>
+          <strong>X + Facebook</strong>
+        </div>
+        <div className="stat-card">
+          <p>Mode</p>
+          <strong>Manual + Schedule</strong>
+        </div>
+        <div className="stat-card">
+          <p>AI Engine</p>
+          <strong>Gemini Captioning</strong>
+        </div>
+      </section>
+
       {/* News Aggregator Section */}
-      <section className="composer-section" style={{ marginBottom: '2rem', background: 'transparent', padding: 0, border: 'none' }}>
-        <h2 className="card-title" style={{ color: 'white', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <section className="composer-section composer-section-plain">
+        <h2 className="card-title card-title-main">
           <Globe size={20} /> International News Browser
         </h2>
-        <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
+        <div className="source-row">
           {sources.map(s => (
             <div 
               key={s.id} 
@@ -153,9 +183,13 @@ export default function Dashboard() {
       </section>
 
       <section className="composer-section">
-        <h2 className="card-title" style={{ color: 'white', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <h2 className="card-title card-title-main">
           <Layout size={20} /> Content Composer
         </h2>
+        <div className="platform-pills">
+          <span><Twitter size={14} /> X</span>
+          <span><Facebook size={14} /> Facebook</span>
+        </div>
         
         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
           Fetch from News URL

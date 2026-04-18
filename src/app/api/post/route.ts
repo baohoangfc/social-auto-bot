@@ -50,6 +50,7 @@ export async function POST(req: Request) {
       }
 
       const anySuccess = results.some(r => r.status === 'success');
+      const failedResults = results.filter(isFailedResult);
       newPost.status = anySuccess ? 'posted' : 'failed';
       newPost.logs = results.map((result) => ({
         message: result.status === 'success'
@@ -60,21 +61,20 @@ export async function POST(req: Request) {
       await newPost.save();
 
       // Kiểm tra nếu tất cả đều thất bại thì mới trả về lỗi 500
+      const credentialHints = failedResults.map((r) => {
+        if (r.error.includes('Unauthorized')) {
+          return `[${r.platform}] Access token/secret không hợp lệ hoặc đã hết hạn.`;
+        }
+        if (r.error.includes('Application has been deleted')) {
+          return `[${r.platform}] App Facebook đã bị xoá hoặc không còn hoạt động.`;
+        }
+        if (r.error.includes('credentials not configured')) {
+          return `[${r.platform}] Chưa cấu hình credentials trong ENV hoặc SocialAccount.`;
+        }
+        return `[${r.platform}] ${r.error}`;
+      });
+
       if (!anySuccess) {
-        const credentialHints = results
-          .filter(isFailedResult)
-          .map((r) => {
-            if (r.error.includes('Unauthorized')) {
-              return `[${r.platform}] Access token/secret không hợp lệ hoặc đã hết hạn.`;
-            }
-            if (r.error.includes('Application has been deleted')) {
-              return `[${r.platform}] App Facebook đã bị xoá hoặc không còn hoạt động.`;
-            }
-            if (r.error.includes('credentials not configured')) {
-              return `[${r.platform}] Chưa cấu hình credentials trong ENV hoặc SocialAccount.`;
-            }
-            return `[${r.platform}] ${r.error}`;
-          });
 
         return NextResponse.json({ 
           success: false,
@@ -89,6 +89,8 @@ export async function POST(req: Request) {
         success: true,
         post: newPost,
         results,
+        partialFailure: failedResults.length > 0,
+        hints: credentialHints,
       });
     }
 
