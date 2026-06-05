@@ -2,7 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import './globals.css';
-import { Newspaper, Send, Layout, Loader2, Calendar, Globe, Sparkles, Twitter, Facebook } from 'lucide-react';
+import { Newspaper, Send, Layout, Loader2, Calendar, Globe, Sparkles, MessageCircle, Users, Image as ImageIcon } from 'lucide-react';
+import type { NewsSource } from '@/lib/news/sources';
+import type { RssArticle } from '@/lib/news/scraper';
+
+type SourcesResponse = { sources?: NewsSource[] };
+type ArticlesResponse = { source?: NewsSource; items?: RssArticle[] };
+type GenerateResponse = { caption?: string; error?: string; detail?: string };
+type PostResult = { platform: string; status: string; error?: string };
+type PostResponse = {
+  success?: boolean;
+  error?: string;
+  hints?: string[];
+  details?: PostResult[];
+  results?: PostResult[];
+  partialFailure?: boolean;
+};
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Lỗi kết nối hoặc trang web chặn bot.';
+}
 
 export default function Dashboard() {
   const [url, setUrl] = useState('');
@@ -12,9 +31,9 @@ export default function Dashboard() {
   const [scheduleTime, setScheduleTime] = useState('');
   
   // News Aggregator State
-  const [sources, setSources] = useState<any[]>([]);
-  const [selectedSource, setSelectedSource] = useState<any>(null);
-  const [articles, setArticles] = useState<any[]>([]);
+  const [sources, setSources] = useState<NewsSource[]>([]);
+  const [selectedSource, setSelectedSource] = useState<NewsSource | null>(null);
+  const [articles, setArticles] = useState<RssArticle[]>([]);
   const [fetchingNews, setFetchingNews] = useState(false);
 
   const isErrorCaption = caption.includes('[HỆ THỐNG BẬN]');
@@ -25,7 +44,7 @@ export default function Dashboard() {
 
   const fetchSources = async () => {
     const res = await fetch('/api/news/list');
-    const data = await res.json();
+    const data = (await res.json()) as SourcesResponse;
     if (data.sources) setSources(data.sources);
   };
 
@@ -33,9 +52,9 @@ export default function Dashboard() {
     setFetchingNews(true);
     try {
       const res = await fetch(`/api/news/list?sourceId=${sourceId}`);
-      const data = await res.json();
+      const data = (await res.json()) as ArticlesResponse;
       if (data.items) setArticles(data.items);
-      setSelectedSource(data.source);
+      setSelectedSource(data.source || null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -53,15 +72,15 @@ export default function Dashboard() {
         body: JSON.stringify({ url: targetUrl }),
         headers: { 'Content-Type': 'application/json' },
       });
-      const data = await res.json();
+      const data = (await res.json()) as GenerateResponse;
       if (!res.ok) {
         setCaption(`⚠️ [LỖI] ${data.error || 'Không thể xử lý tin tức'}\n\nChi tiết: ${data.detail || 'Lỗi kết nối hoặc trang web chặn bot.'}`);
         return;
       }
       if (data.caption) setCaption(data.caption);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setCaption(`⚠️ [LỖI HỆ THỐNG] Không thể xử lý tin tức này.\n\nChi tiết: ${err.message || 'Lỗi kết nối hoặc trang web chặn bot.'}`);
+      setCaption(`⚠️ [LỖI HỆ THỐNG] Không thể xử lý tin tức này.\n\nChi tiết: ${getErrorMessage(err)}`);
     } finally {
       setLoading(false);
     }
@@ -80,24 +99,24 @@ export default function Dashboard() {
           status: scheduleTime ? 'scheduled' : 'posted'
         }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as PostResponse;
       if (!res.ok || data.success === false) {
         const hints = Array.isArray(data.hints) ? `\n\nGợi ý:\n- ${data.hints.join('\n- ')}` : '';
         const details = Array.isArray(data.details)
-          ? `\n\nChi tiết:\n- ${data.details.map((d: { platform: string; error?: string }) => `${d.platform}: ${d.error || 'Unknown error'}`).join('\n- ')}`
+          ? `\n\nChi tiết:\n- ${data.details.map((d) => `${d.platform}: ${d.error || 'Unknown error'}`).join('\n- ')}`
           : '';
         alert(`${data.error || 'Đăng bài thất bại'}${hints}${details}`);
         return;
       }
       if (data.success) {
         if (data.partialFailure && Array.isArray(data.results)) {
-          const failed = data.results.filter((r: { status: string }) => r.status === 'failed');
+          const failed = data.results.filter((r) => r.status === 'failed');
           const hints = Array.isArray(data.hints) && data.hints.length > 0
             ? `\n\nGợi ý:\n- ${data.hints.join('\n- ')}`
             : '';
           alert(
             `Đăng thành công một phần. Nền tảng lỗi: ${failed
-              .map((f: { platform: string }) => f.platform)
+              .map((f) => f.platform)
               .join(', ') || 'không xác định'}${hints}`
           );
         } else {
@@ -155,11 +174,15 @@ export default function Dashboard() {
               className={`card ${selectedSource?.id === s.id ? 'active-source' : ''}`}
               style={{ minWidth: '150px', cursor: 'pointer', textAlign: 'center', padding: '1rem' }}
             >
-              <img src={s.icon} alt={s.name} style={{ width: '24px', height: '24px', marginBottom: '0.5rem' }} />
+              <span aria-hidden="true" style={{ display: 'inline-flex', marginBottom: '0.5rem' }}><ImageIcon size={24} /></span>
               <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>{s.name}</p>
             </div>
           ))}
         </div>
+
+        {fetchingNews && (
+          <p style={{ color: '#999', marginTop: '1rem' }}>Đang tải tin tức...</p>
+        )}
 
         {articles.length > 0 && (
           <div className="grid" style={{ marginTop: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
@@ -167,7 +190,7 @@ export default function Dashboard() {
               <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.title}</h3>
-                  <p style={{ fontSize: '0.75rem', color: '#999' }}>{new Date(item.pubDate).toLocaleDateString()}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#999' }}>{item.pubDate ? new Date(item.pubDate).toLocaleDateString() : 'Không rõ ngày'}</p>
                 </div>
                 <button 
                   className="btn btn-primary" 
@@ -187,8 +210,8 @@ export default function Dashboard() {
           <Layout size={20} /> Content Composer
         </h2>
         <div className="platform-pills">
-          <span><Twitter size={14} /> X</span>
-          <span><Facebook size={14} /> Facebook</span>
+          <span><MessageCircle size={14} /> X</span>
+          <span><Users size={14} /> Facebook</span>
         </div>
         
         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>

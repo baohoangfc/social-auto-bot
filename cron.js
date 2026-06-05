@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const cron = require('node-cron');
 const { fetchRSS } = require('./src/lib/news/scraper');
 const { runAutoPilotForPlatform } = require('./src/lib/workflow/orchestrator');
 const connectDB = require('./src/lib/db/mongodb');
-const { Post, NewsSource, ProcessedArticle } = require('./src/models');
+const { ProcessedArticle } = require('./src/models');
 const { INTERNATIONAL_SOURCES } = require('./src/lib/news/sources');
 
 // 1. Quét tin tức quốc tế mới (Mỗi giờ) - AGGREGATOR ONLY

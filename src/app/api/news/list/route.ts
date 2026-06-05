@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     // Default: Get all sources
     return NextResponse.json({ sources: INTERNATIONAL_SOURCES });
-  } catch (error: any) {
+  } catch (error) {
     console.error('News List API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

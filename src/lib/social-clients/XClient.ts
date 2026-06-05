@@ -1,6 +1,11 @@
 import OAuth from 'oauth-1.0a';
 import crypto from 'crypto-js';
 
+type XApiError = {
+  detail?: string;
+  message?: string;
+};
+
 export class XClient {
   private consumerKey: string;
   private consumerSecret: string;
@@ -39,13 +44,13 @@ export class XClient {
     const response = await fetch(request_data.url, {
       method: request_data.method,
       headers: {
-        ...headers as any,
+        ...headers,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(request_data.data),
     });
 
-    const resData = await response.json();
+    const resData = (await response.json()) as XApiError;
     if (!response.ok) {
       console.error('X API Error:', resData);
       throw new Error(`X API Error: ${resData.detail || resData.message || response.statusText}`);

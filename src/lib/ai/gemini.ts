@@ -1,5 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
+function getErrorStatus(error: unknown) {
+  return typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
+}
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "DUMMY_KEY");
 
 export async function generateCaption(newsContent: string) {
@@ -22,9 +30,11 @@ export async function generateCaption(newsContent: string) {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text();
-  } catch (error: any) {
+  } catch (error) {
     console.error("Gemini AI Error:", error);
-    if (error.message?.includes('429') || error.status === 429) {
+    const message = getErrorMessage(error);
+    const status = getErrorStatus(error);
+    if (message.includes('429') || status === 429) {
       return "⚠️ [HỆ THỐNG BẬN] AI đang quá tải yêu cầu. Bạn vui lòng đợi khoảng 30-60 giây rồi nhấn thử lại nhé! (Do hạn mức tài khoản Google miễn phí đang tạm đầy)";
     }
     throw error;

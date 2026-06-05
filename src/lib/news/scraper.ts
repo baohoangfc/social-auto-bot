@@ -1,14 +1,27 @@
 import Parser from 'rss-parser';
 import * as cheerio from 'cheerio';
 
+export interface RssArticle {
+  title: string;
+  link: string;
+  pubDate?: string;
+  content?: string;
+}
+
+export interface ScrapedNews {
+  title: string;
+  content: string;
+  url: string;
+}
+
 const parser = new Parser();
 
-export async function fetchRSS(url: string) {
+export async function fetchRSS(url: string): Promise<RssArticle[]> {
   try {
     const feed = await parser.parseURL(url);
     return feed.items.map(item => ({
-      title: item.title,
-      link: item.link,
+      title: item.title || 'Untitled',
+      link: item.link || '',
       pubDate: item.pubDate,
       content: item.contentSnippet || item.content,
     }));
@@ -18,7 +31,7 @@ export async function fetchRSS(url: string) {
   }
 }
 
-export async function scrapeNews(url: string) {
+export async function scrapeNews(url: string): Promise<ScrapedNews | null> {
   try {
     const response = await fetch(url, {
       headers: {

@@ -4,7 +4,6 @@ import { Post, SocialAccount, ProcessedArticle } from "../../models";
 import connectDB from "../db/mongodb";
 import { MetaClient } from "../social-clients/MetaClient";
 import { XClient } from "../social-clients/XClient";
-import { TikTokClient } from "../social-clients/TikTokClient";
 
 export async function processNewsAndPost(url: string) {
   await connectDB();
