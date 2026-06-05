@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models } from 'mongoose';
+import { Schema, model, models } from 'mongoose';
 
 const SocialAccountSchema = new Schema({
   platform: { type: String, required: true, enum: ['facebook', 'instagram', 'x', 'tiktok'] },

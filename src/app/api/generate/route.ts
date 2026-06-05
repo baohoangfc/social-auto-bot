@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { scrapeNews } from '@/lib/news/scraper';
 import { generateCaption } from '@/lib/ai/gemini';
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
 export async function POST(req: Request) {
   try {
     const { url } = await req.json();
@@ -18,11 +22,11 @@ export async function POST(req: Request) {
     const caption = await generateCaption(news.content);
 
     return NextResponse.json({ caption, title: news.title });
-  } catch (error: any) {
+  } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json({ 
       error: 'Lỗi xử lý tin tức (API Error)', 
-      detail: error?.message || 'Unknown error'
+      detail: getErrorMessage(error)
     }, { status: 500 });
   }
 }

@@ -1,4 +1,14 @@
-export const INTERNATIONAL_SOURCES = [
+export type NewsCategory = 'World' | 'Technology' | 'Crypto' | 'Politics' | 'Business';
+
+export interface NewsSource {
+  id: string;
+  name: string;
+  url: string;
+  category: NewsCategory;
+  icon: string;
+}
+
+export const INTERNATIONAL_SOURCES: NewsSource[] = [
   {
     id: 'cnn',
     name: 'CNN News',
