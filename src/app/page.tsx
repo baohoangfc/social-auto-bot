@@ -8,7 +8,7 @@ import type { RssArticle } from '@/lib/news/scraper';
 
 type SourcesResponse = { sources?: NewsSource[] };
 type ArticlesResponse = { source?: NewsSource; items?: RssArticle[] };
-type GenerateResponse = { caption?: string; error?: string; detail?: string };
+type GenerateResponse = { caption?: string; title?: string; sourceUrl?: string; imageDataUrl?: string | null; error?: string; detail?: string };
 type PostResult = { platform: string; status: string; error?: string };
 type PostResponse = {
   success?: boolean;
@@ -25,6 +25,8 @@ function getErrorMessage(error: unknown) {
 
 export default function Dashboard() {
   const [url, setUrl] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
   const [loading, setLoading] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -78,6 +80,11 @@ export default function Dashboard() {
         return;
       }
       if (data.caption) setCaption(data.caption);
+      if (data.sourceUrl) {
+        setSourceUrl(data.sourceUrl);
+        setUrl(data.sourceUrl);
+      }
+      setImageDataUrl(data.imageDataUrl ?? null);
     } catch (err) {
       console.error(err);
       setCaption(`⚠️ [LỖI HỆ THỐNG] Không thể xử lý tin tức này.\n\nChi tiết: ${getErrorMessage(err)}`);
@@ -95,6 +102,8 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: caption,
+          sourceUrl: sourceUrl || url || null,
+          mediaUrls: imageDataUrl ? [imageDataUrl] : [],
           scheduledFor: scheduleTime || null,
           status: scheduleTime ? 'scheduled' : 'posted'
         }),
@@ -124,6 +133,8 @@ export default function Dashboard() {
         }
         setCaption('');
         setUrl('');
+        setSourceUrl('');
+        setImageDataUrl(null);
         setScheduleTime('');
       }
     } catch (err) {
@@ -157,7 +168,7 @@ export default function Dashboard() {
         </div>
         <div className="stat-card">
           <p>AI Engine</p>
-          <strong>Gemini Captioning</strong>
+          <strong>Gemini Flash + Image</strong>
         </div>
       </section>
 
@@ -241,6 +252,26 @@ export default function Dashboard() {
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
         ></textarea>
+
+        {imageDataUrl && (
+          <div style={{ marginTop: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#999' }}>
+              <ImageIcon size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.25rem' }} />
+              AI Generated Image
+            </label>
+            <img
+              src={imageDataUrl}
+              alt="AI generated preview"
+              style={{ maxWidth: '100%', maxHeight: '280px', borderRadius: '8px', border: '1px solid #222' }}
+            />
+          </div>
+        )}
+
+        {sourceUrl && (
+          <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#777' }}>
+            Source: {sourceUrl}
+          </p>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid #222', paddingTop: '1.5rem' }}>
           <div style={{ flex: 1 }}>

@@ -1,45 +1,24 @@
 import { scrapeNews } from "../news/scraper";
-import { generateCaption } from "../ai/gemini";
+import { generateCaption, generatePostImage, parseImageFromMediaUrls, type GeneratedImage } from "../ai/gemini";
 import { Post, SocialAccount, ProcessedArticle } from "../../models";
 import connectDB from "../db/mongodb";
 import { MetaClient } from "../social-clients/MetaClient";
 import { XClient } from "../social-clients/XClient";
 
-export async function processNewsAndPost(url: string) {
-  await connectDB();
+type SupportedPlatform = 'facebook' | 'x';
 
-  // 1. Scrape News
-  const news = await scrapeNews(url);
-  if (!news) throw new Error("Could not scrape news");
-
-  // 2. Generate content with AI
-  const caption = await generateCaption(news.content);
-
-  // 3. Create Post Record in DB
-  const newPost = await Post.create({
-    content: caption,
-    sourceUrl: url,
-    aiGenerated: true,
-    status: 'scheduled',
-    platforms: ['facebook', 'instagram', 'x', 'tiktok']
-  });
-
-  // 4. Post to all platforms
-  const platforms = ['facebook', 'x'];
-  for (const platform of platforms) {
-    await postToSpecificPlatform(platform, caption, url);
-  }
-
-  newPost.status = 'posted';
-  await newPost.save();
-
-  return newPost;
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error';
 }
 
-export async function postToSpecificPlatform(platform: string, content: string, url?: string) {
-  // Kiểm tra tài khoản từ DB hoặc Environment Variables (để ưu tiên chạy ngay trên Railway)
+export async function postToSpecificPlatform(
+  platform: string,
+  content: string,
+  url?: string,
+  image?: GeneratedImage | null
+) {
   const account = await SocialAccount.findOne({ platform });
-  
+
   const xToken = process.env.X_ACCESS_TOKEN || account?.accessToken;
   const xSecret = process.env.X_ACCESS_TOKEN_SECRET || account?.accessSecret;
   const xApiKey = process.env.X_API_KEY;
@@ -53,12 +32,19 @@ export async function postToSpecificPlatform(platform: string, content: string, 
         throw new Error('facebook credentials not configured');
       }
       const client = new MetaClient();
-      await client.postToFacebookPage(
-        fbPageId,
-        fbToken,
-        content,
-        url || undefined
-      );
+
+      if (image) {
+        await client.postPhotoToFacebookPage(
+          fbPageId,
+          fbToken,
+          content,
+          Buffer.from(image.base64, 'base64'),
+          image.mimeType,
+          url
+        );
+      } else {
+        await client.postToFacebookPage(fbPageId, fbToken, content, url);
+      }
     } else if (platform === 'x') {
       if (!xToken || !xSecret) {
         throw new Error('x credentials not configured');
@@ -66,13 +52,11 @@ export async function postToSpecificPlatform(platform: string, content: string, 
       if (!xApiKey || !xApiSecret) {
         throw new Error('x app credentials not configured');
       }
-      const client = new XClient(
-        xApiKey,
-        xApiSecret,
-        xToken,
-        xSecret
-      );
-      await client.postTweet(content);
+      const client = new XClient(xApiKey, xApiSecret, xToken, xSecret);
+      const tweetText = url ? `${content}\n\n${url}` : content;
+      await client.postTweet(tweetText);
+    } else {
+      throw new Error(`Unsupported platform: ${platform}`);
     }
     console.log(`Successfully posted to ${platform}`);
   } catch (error) {
@@ -81,14 +65,57 @@ export async function postToSpecificPlatform(platform: string, content: string, 
   }
 }
 
+export async function processScheduledPosts() {
+  await connectDB();
+
+  const duePosts = await Post.find({
+    status: 'scheduled',
+    scheduledFor: { $lte: new Date() },
+  })
+    .sort({ scheduledFor: 1 })
+    .limit(10);
+
+  if (!duePosts.length) return;
+
+  console.log(`[Scheduler] Processing ${duePosts.length} scheduled post(s)...`);
+
+  for (const post of duePosts) {
+    const platforms = (post.platforms?.length ? post.platforms : ['x', 'facebook']) as SupportedPlatform[];
+    const image = parseImageFromMediaUrls(post.mediaUrls);
+    const results: Array<{ platform: string; status: 'success' | 'failed'; error?: string }> = [];
+
+    for (const platform of platforms) {
+      try {
+        await postToSpecificPlatform(platform, post.content, post.sourceUrl, image);
+        results.push({ platform, status: 'success' });
+      } catch (error) {
+        const errorMessage = getErrorMessage(error);
+        console.error(`[Scheduler] Failed to post ${post._id} to ${platform}:`, errorMessage);
+        results.push({ platform, status: 'failed', error: errorMessage });
+      }
+    }
+
+    const anySuccess = results.some((result) => result.status === 'success');
+    post.status = anySuccess ? 'posted' : 'failed';
+    post.logs = results.map((result) => ({
+      message:
+        result.status === 'success'
+          ? `[${result.platform}] posted successfully`
+          : `[${result.platform}] ${result.error}`,
+      timestamp: new Date(),
+    }));
+    await post.save();
+    console.log(`[Scheduler] Post ${post._id} finished with status: ${post.status}`);
+  }
+}
+
 export async function runAutoPilotForPlatform(platform: string) {
   await connectDB();
   console.log(`[Auto-Pilot] Starting automation for ${platform}...`);
 
-  // 1. Tìm bài báo mới nhất chưa đăng lên platform này
   const article = await ProcessedArticle.findOne({
     postedPlatforms: { $ne: platform },
-    status: { $ne: 'ignored' }
+    status: { $ne: 'ignored' },
   }).sort({ createdAt: -1 });
 
   if (!article) {
@@ -98,22 +125,20 @@ export async function runAutoPilotForPlatform(platform: string) {
 
   try {
     console.log(`[Auto-Pilot] Processing article: ${article.title}`);
-    
-    // 2. Scrape & Gen
+
     const news = await scrapeNews(article.link);
     if (!news) throw new Error("Could not scrape news content");
-    
+
     const caption = await generateCaption(news.content);
+    const image = platform === 'facebook' ? await generatePostImage(news.content, news.title) : null;
 
-    // 3. Post
-    await postToSpecificPlatform(platform, caption, article.link);
+    await postToSpecificPlatform(platform, caption, article.link, image);
 
-    // 4. Update status
     await ProcessedArticle.updateOne(
       { _id: article._id },
-      { 
+      {
         $addToSet: { postedPlatforms: platform },
-        $set: { status: 'posted' }
+        $set: { status: 'posted' },
       }
     );
 

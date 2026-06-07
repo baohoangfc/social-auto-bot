@@ -5,6 +5,7 @@ const SocialAccountSchema = new Schema({
   accountId: { type: String, required: true },
   accountName: { type: String },
   accessToken: { type: String, required: true },
+  accessSecret: { type: String },
   refreshToken: { type: String },
   expiresAt: { type: Date },
   profilePicture: { type: String },

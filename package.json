@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p ${PORT:-8080}",
+    "cron": "tsx cron.ts",
     "lint": "eslint"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }

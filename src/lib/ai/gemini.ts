@@ -10,6 +10,12 @@ function getErrorStatus(error: unknown) {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "DUMMY_KEY");
 
+export type GeneratedImage = {
+  base64: string;
+  mimeType: string;
+  dataUrl: string;
+};
+
 export async function generateCaption(newsContent: string) {
   if (!process.env.GEMINI_API_KEY) {
     return "[MOCK] Đây là caption AI tự động soạn từ tin tức của bạn: Một bước tiến mới trong công nghệ! #AI #Innovation";
@@ -41,16 +47,82 @@ export async function generateCaption(newsContent: string) {
   }
 }
 
-export async function generateImagePrompt(newsContent: string) {
+export async function generateImagePrompt(newsContent: string, title?: string) {
+  if (!process.env.GEMINI_API_KEY) {
+    return `Professional news illustration about: ${title || newsContent.slice(0, 100)}, cinematic lighting, editorial style, no text overlay`;
+  }
+
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
   const prompt = `
-    Dựa trên nội dung tin tức sau, hãy tạo một prompt tiếng Anh chi tiết để dùng cho AI sinh ảnh (DALL-E/Midjourney).
-    Ảnh cần minh họa cho tin tức một cách chuyên nghiệp và ấn tượng.
+    Dựa trên nội dung tin tức sau, hãy tạo một prompt tiếng Anh chi tiết để dùng cho AI sinh ảnh minh họa bài báo.
+    Ảnh cần chuyên nghiệp, ấn tượng, phù hợp đăng mạng xã hội. Không có chữ trên ảnh.
+    Tiêu đề: ${title || 'N/A'}
     Tin tức: ${newsContent}
+    Chỉ trả về prompt tiếng Anh, không giải thích thêm.
   `;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  return response.text();
+  return response.text().trim();
+}
+
+export async function generatePostImage(newsContent: string, title?: string): Promise<GeneratedImage | null> {
+  if (!process.env.GEMINI_API_KEY) {
+    return null;
+  }
+
+  const imagePrompt = await generateImagePrompt(newsContent, title);
+  const imageModels = [
+    'gemini-2.0-flash-exp-image-generation',
+    'gemini-2.0-flash-exp',
+  ];
+
+  for (const modelName of imageModels) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          // @ts-expect-error responseModalities is supported by image-capable Gemini models
+          responseModalities: ['Text', 'Image'],
+        },
+      });
+
+      const result = await model.generateContent(
+        `Generate a single professional news illustration image. ${imagePrompt}`
+      );
+      const parts = result.response.candidates?.[0]?.content?.parts ?? [];
+
+      for (const part of parts) {
+        if (part.inlineData?.data) {
+          const mimeType = part.inlineData.mimeType || 'image/png';
+          return {
+            base64: part.inlineData.data,
+            mimeType,
+            dataUrl: `data:${mimeType};base64,${part.inlineData.data}`,
+          };
+        }
+      }
+    } catch (error) {
+      console.error(`Image generation failed with model ${modelName}:`, error);
+    }
+  }
+
+  return null;
+}
+
+export function parseImageFromMediaUrls(mediaUrls?: string[]): GeneratedImage | null {
+  if (!mediaUrls?.length) return null;
+
+  const dataUrl = mediaUrls.find((url) => url.startsWith('data:image/'));
+  if (!dataUrl) return null;
+
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) return null;
+
+  return {
+    mimeType: match[1],
+    base64: match[2],
+    dataUrl,
+  };
 }

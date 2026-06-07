@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db/mongodb';
 import { Post } from '@/models';
 import { postToSpecificPlatform } from '@/lib/workflow/orchestrator';
+import { parseImageFromMediaUrls } from '@/lib/ai/gemini';
 
 type SupportedPlatform = 'x' | 'facebook';
 
@@ -20,27 +21,32 @@ function isFailedResult(result: PlatformPostResult): result is Extract<PlatformP
 export async function POST(req: Request) {
   try {
     await connectDB();
-    const { content, scheduledFor, status } = await req.json();
+    const { content, scheduledFor, status, sourceUrl, mediaUrls } = await req.json();
 
     if (!content) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
     }
 
-    // Nếu là đăng ngay lập tức
+    const normalizedMediaUrls = Array.isArray(mediaUrls)
+      ? mediaUrls.filter((url: unknown): url is string => typeof url === 'string' && url.length > 0)
+      : [];
+
     if (!scheduledFor || status === 'posted') {
       const newPost = await Post.create({
         content,
+        sourceUrl: sourceUrl || undefined,
+        mediaUrls: normalizedMediaUrls,
         status: 'draft',
-        platforms: ['x', 'facebook'] 
+        platforms: ['x', 'facebook'],
       });
-      
-      // GỌI THỰC THI ĐĂNG BÀI THẬT (Tách biệt từng nền tảng)
+
       const platforms: SupportedPlatform[] = ['x', 'facebook'];
+      const image = parseImageFromMediaUrls(normalizedMediaUrls);
       const results: PlatformPostResult[] = [];
-      
+
       for (const platform of platforms) {
         try {
-          await postToSpecificPlatform(platform, content);
+          await postToSpecificPlatform(platform, content, sourceUrl, image);
           results.push({ platform, status: 'success' });
         } catch (error: unknown) {
           const errorMessage = getErrorMessage(error);
@@ -49,18 +55,18 @@ export async function POST(req: Request) {
         }
       }
 
-      const anySuccess = results.some(r => r.status === 'success');
+      const anySuccess = results.some((r) => r.status === 'success');
       const failedResults = results.filter(isFailedResult);
       newPost.status = anySuccess ? 'posted' : 'failed';
       newPost.logs = results.map((result) => ({
-        message: result.status === 'success'
-          ? `[${result.platform}] posted successfully`
-          : `[${result.platform}] ${result.error}`,
+        message:
+          result.status === 'success'
+            ? `[${result.platform}] posted successfully`
+            : `[${result.platform}] ${result.error}`,
         timestamp: new Date(),
       }));
       await newPost.save();
 
-      // Kiểm tra nếu tất cả đều thất bại thì mới trả về lỗi 500
       const credentialHints = failedResults.map((r) => {
         if (r.error.includes('Unauthorized')) {
           return `[${r.platform}] Access token/secret không hợp lệ hoặc đã hết hạn.`;
@@ -75,10 +81,9 @@ export async function POST(req: Request) {
       });
 
       if (!anySuccess) {
-
-        return NextResponse.json({ 
+        return NextResponse.json({
           success: false,
-          error: 'Tất cả các nền tảng đều thất bại', 
+          error: 'Tất cả các nền tảng đều thất bại',
           details: results,
           hints: credentialHints,
           postId: newPost._id,
@@ -94,12 +99,13 @@ export async function POST(req: Request) {
       });
     }
 
-    // Nếu là hẹn giờ
     const scheduledPost = await Post.create({
       content,
+      sourceUrl: sourceUrl || undefined,
+      mediaUrls: normalizedMediaUrls,
       scheduledFor: new Date(scheduledFor),
       status: 'scheduled',
-      platforms: ['x', 'facebook']
+      platforms: ['x', 'facebook'],
     });
 
     return NextResponse.json({ success: true, post: scheduledPost });
