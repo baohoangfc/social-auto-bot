@@ -1,4 +1,5 @@
-import { scrapeNews } from "../news/scraper";
+import { scrapeNews, fetchRSS } from "../news/scraper";
+import { INTERNATIONAL_SOURCES } from "../news/sources";
 import { generateCaption, generatePostImage, parseImageFromMediaUrls, type GeneratedImage } from "../ai/gemini";
 import { Post, SocialAccount, ProcessedArticle } from "../../models";
 import connectDB from "../db/mongodb";
@@ -63,6 +64,30 @@ export async function postToSpecificPlatform(
     console.error(`Failed to post to ${platform}:`, error);
     throw error;
   }
+}
+
+export async function runNewsAggregator() {
+  await connectDB();
+  let newCount = 0;
+
+  for (const source of INTERNATIONAL_SOURCES) {
+    const items = await fetchRSS(source.url);
+
+    for (const item of items) {
+      const existing = await ProcessedArticle.findOne({ link: item.link });
+      if (existing) continue;
+
+      await ProcessedArticle.create({
+        title: item.title,
+        link: item.link,
+        sourceId: source.id,
+        status: 'processed',
+      });
+      newCount += 1;
+    }
+  }
+
+  return { newCount };
 }
 
 export async function processScheduledPosts() {

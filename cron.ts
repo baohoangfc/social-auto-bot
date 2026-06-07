@@ -1,35 +1,13 @@
 import cron from 'node-cron';
-import connectDB from './src/lib/db/mongodb';
-import { fetchRSS } from './src/lib/news/scraper';
-import { INTERNATIONAL_SOURCES } from './src/lib/news/sources';
-import { ProcessedArticle } from './src/models';
-import { runAutoPilotForPlatform, processScheduledPosts } from './src/lib/workflow/orchestrator';
+import { runNewsAggregator, runAutoPilotForPlatform, processScheduledPosts } from './src/lib/workflow/orchestrator';
 
-// 1. Quét tin tức quốc tế mới (mỗi giờ)
 cron.schedule(
   '0 * * * *',
   async () => {
     console.log('--- [Aggregator] Đang quét tin tức quốc tế mới... ---');
     try {
-      await connectDB();
-
-      for (const source of INTERNATIONAL_SOURCES) {
-        console.log(`[Aggregator] Đang quét nguồn: ${source.name}`);
-        const items = await fetchRSS(source.url);
-
-        for (const item of items) {
-          const existing = await ProcessedArticle.findOne({ link: item.link });
-          if (existing) continue;
-
-          await ProcessedArticle.create({
-            title: item.title,
-            link: item.link,
-            sourceId: source.id,
-            status: 'processed',
-          });
-        }
-      }
-      console.log('--- [Aggregator] Quét tin hoàn tất. ---');
+      const result = await runNewsAggregator();
+      console.log(`--- [Aggregator] Quét tin hoàn tất. ${result.newCount} bài mới. ---`);
     } catch (error) {
       console.error('[Aggregator] Lỗi:', error);
     }
@@ -37,7 +15,6 @@ cron.schedule(
   { timezone: 'Asia/Ho_Chi_Minh' }
 );
 
-// 2. Thực thi bài hẹn giờ (mỗi phút)
 cron.schedule(
   '* * * * *',
   async () => {
@@ -50,7 +27,6 @@ cron.schedule(
   { timezone: 'Asia/Ho_Chi_Minh' }
 );
 
-// 3. Tự động đăng lên X (mỗi 2 giờ)
 cron.schedule(
   '0 */2 * * *',
   async () => {
@@ -64,7 +40,6 @@ cron.schedule(
   { timezone: 'Asia/Ho_Chi_Minh' }
 );
 
-// 4. Tự động đăng lên Facebook (mỗi 3 giờ)
 cron.schedule(
   '0 */3 * * *',
   async () => {

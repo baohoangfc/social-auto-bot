@@ -4,6 +4,8 @@ import { Post } from '@/models';
 import { postToSpecificPlatform } from '@/lib/workflow/orchestrator';
 import { parseImageFromMediaUrls } from '@/lib/ai/gemini';
 
+export const maxDuration = 120;
+
 type SupportedPlatform = 'x' | 'facebook';
 
 type PlatformPostResult =

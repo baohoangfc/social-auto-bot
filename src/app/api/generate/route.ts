@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { scrapeNews } from '@/lib/news/scraper';
 import { generateCaption, generatePostImage } from '@/lib/ai/gemini';
 
+export const maxDuration = 120;
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown error';
 }

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/cron-auth';
-import { processScheduledPosts } from '@/lib/workflow/orchestrator';
+import { runNewsAggregator } from '@/lib/workflow/orchestrator';
 
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 export async function GET(req: Request) {
   if (!verifyCronRequest(req)) {
@@ -10,10 +10,10 @@ export async function GET(req: Request) {
   }
 
   try {
-    await processScheduledPosts();
-    return NextResponse.json({ success: true });
+    const result = await runNewsAggregator();
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
-    console.error('Cron API Error:', error);
+    console.error('Aggregator cron error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
