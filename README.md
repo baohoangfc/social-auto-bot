@@ -40,16 +40,18 @@ Nhấn **Deploy**. Vercel sẽ build và host dashboard tại URL dạng `https:
 
 ### 4. Cron jobs (tự động trên Vercel)
 
-File `vercel.json` đã cấu hình sẵn:
+**Gói Hobby (miễn phí):** `vercel.json` chạy 1 cron/ngày lúc 00:00 giờ Việt Nam (`/api/cron/daily`):
+- Quét tin RSS mới
+- Auto-pilot đăng X + Facebook
+- Xử lý bài hẹn giờ đến hạn
 
-| Endpoint | Lịch | Chức năng |
-|----------|------|-----------|
-| `/api/cron/process-scheduled` | Mỗi phút | Đăng bài hẹn giờ |
-| `/api/cron/aggregator` | Mỗi giờ | Quét tin RSS mới |
-| `/api/cron/auto-pilot/x` | 2 giờ/lần | Auto đăng X |
-| `/api/cron/auto-pilot/facebook` | 3 giờ/lần | Auto đăng Facebook |
+**Gói Pro:** đổi tên `vercel.pro.json` → `vercel.json` để bật cron chi tiết (mỗi phút / 2h / 3h).
 
-> **Lưu ý:** Cron chạy mỗi phút cần gói **Vercel Pro**. Gói Hobby giới hạn 2 cron jobs và tối đa 1 lần/ngày.
+**Hẹn giờ chính xác trên Hobby:** dùng [cron-job.org](https://cron-job.org) gọi mỗi phút:
+```
+GET https://your-app.vercel.app/api/cron/process-scheduled
+Authorization: Bearer <CRON_SECRET>
+```
 
 ### 5. MongoDB Atlas
 
