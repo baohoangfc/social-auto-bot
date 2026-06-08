@@ -38,9 +38,9 @@ Trong **Project Settings → Environment Variables**, thêm:
 
 Nhấn **Deploy**. Vercel sẽ build và host dashboard tại URL dạng `https://your-project.vercel.app`.
 
-> **Nếu URL Vercel trả về `404: NOT_FOUND` ngay ở trang chủ:** đây thường là lỗi deployment chưa sinh output thành công hoặc domain/alias chưa trỏ đúng project, không phải 404 của Next.js. Repo đã khóa cấu hình Vercel trong `vercel.json` để dùng preset Next.js, `npm ci` và `npm run build`. Nếu log vẫn hiện `Running "vercel build"`, hãy xóa override Build Command trong **Project Settings → Build & Development Settings** rồi redeploy.
-> 1. Project đang trỏ đúng repo/branch và **Root Directory** là thư mục chứa `package.json`.
-> 2. Deployment mới nhất có trạng thái **Ready**; nếu build fail, xem log build trước.
+> **Nếu URL Vercel trả về `404: NOT_FOUND`:** repo đã cấu hình Vercel dùng preset Next.js, `npm ci`, `npm run build`, và rewrite fallback mọi đường dẫn chưa khớp route/static asset về dashboard `/`. Sau khi push, hãy redeploy commit mới nhất rồi kiểm tra:
+> 1. Deployment mới nhất có trạng thái **Ready** và source commit đúng branch vừa push.
+> 2. Project đang trỏ đúng repo/branch và **Root Directory** là thư mục chứa `package.json`.
 > 3. Domain/alias `https://your-project.vercel.app` đang được gán cho project này trong **Project Settings → Domains**.
 > 4. Runtime Node.js dùng cho build đạt tối thiểu `20.9.0` (repo đã khai báo trong `package.json`).
 
