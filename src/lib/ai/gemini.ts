@@ -16,20 +16,39 @@ export type GeneratedImage = {
   dataUrl: string;
 };
 
-export async function generateCaption(newsContent: string) {
+export type CaptionProfile = {
+  topic?: string;
+  tone?: string;
+  language?: string;
+  prompt?: string;
+  hashtags?: string[];
+};
+
+export async function generateCaption(newsContent: string, profile?: CaptionProfile | null) {
   if (!process.env.GEMINI_API_KEY) {
-    return "[MOCK] Đây là caption AI tự động soạn từ tin tức của bạn: Một bước tiến mới trong công nghệ! #AI #Innovation";
+    const mockHashtags = profile?.hashtags?.length ? ` ${profile.hashtags.join(' ')}` : ' #AI #Innovation';
+    return `[MOCK] Đây là caption AI tự động soạn từ tin tức của bạn${profile?.topic ? ` cho chủ đề ${profile.topic}` : ''}: Một bước tiến mới trong công nghệ!${mockHashtags}`;
   }
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
+  const pageContext = profile ? `
+    Ngữ cảnh Page Facebook:
+    - Chủ đề Page: ${profile.topic || 'Tin tức tổng hợp'}
+    - Tone: ${profile.tone || 'Sắc sảo, kịch tính, thu hút'}
+    - Ngôn ngữ: ${profile.language || 'Tiếng Việt'}
+    - Hashtag mặc định: ${profile.hashtags?.length ? profile.hashtags.join(' ') : '#BreakingNews #KinhTe #ChienTranh #Bitcoin #Vang'}
+    - Chỉ dẫn riêng: ${profile.prompt || 'Không có'}
+  ` : '';
+
   const prompt = `
-    Dựa trên nội dung tin tức ĐẶC BIỆT NÓNG HỔI sau đây, hãy viết một bản tin CỰC KỲ THU HÚT, GIẬT GÂN và GÂY CHÚ Ý để đăng lên mạng xã hội.
+    Dựa trên nội dung tin tức ĐẶC BIỆT NÓNG HỔI sau đây, hãy viết một bản tin CỰC KỲ THU HÚT để đăng lên Facebook.
+    ${pageContext}
     Nội dung tin tức: ${newsContent}
     Yêu cầu:
-    - Ngôn ngữ: Tiếng Việt, phong cách sắc sảo, kịch tính.
-    - Làm nổi bật các con số (giá Vàng, Bitcoin) hoặc tình tiết quan trọng (Chiến sự, Chính trị).
-    - Tạo cảm giác cấp bách hoặc tầm ảnh hưởng lớn đến người đọc.
-    - Sử dụng các hashtag mạnh mẽ (#BreakingNews #KinhTe #ChienTranh #Bitcoin #Vang).
+    - Tuân thủ ngôn ngữ, tone, chủ đề và chỉ dẫn riêng của Page nếu có.
+    - Làm nổi bật các con số hoặc tình tiết quan trọng.
+    - Tạo cảm giác cấp bách hoặc tầm ảnh hưởng lớn đến người đọc nhưng không bịa thông tin.
+    - Sử dụng hashtag phù hợp với Page, ưu tiên hashtag mặc định nếu có.
   `;
 
   try {
