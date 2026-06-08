@@ -1,5 +1,32 @@
 import { Schema, model, models } from 'mongoose';
 
+const ContentProfileSchema = new Schema({
+  topic: { type: String, default: '' },
+  tone: { type: String, default: 'Chuyên nghiệp, rõ ràng, thu hút' },
+  language: { type: String, default: 'Tiếng Việt' },
+  prompt: { type: String, default: '' },
+  hashtags: [{ type: String }],
+  sourceIds: [{ type: String }],
+}, { _id: false });
+
+const PostingSettingsSchema = new Schema({
+  autoPost: { type: Boolean, default: false },
+  requireApproval: { type: Boolean, default: true },
+  defaultScheduleTimes: [{ type: String }],
+}, { _id: false });
+
+const FacebookPageSchema = new Schema({
+  pageId: { type: String, required: true, unique: true, index: true },
+  pageName: { type: String, required: true },
+  pageAccessToken: { type: String, required: true },
+  tokenExpiresAt: { type: Date },
+  profilePicture: { type: String },
+  category: { type: String },
+  isActive: { type: Boolean, default: true },
+  contentProfile: { type: ContentProfileSchema, default: () => ({}) },
+  postingSettings: { type: PostingSettingsSchema, default: () => ({}) },
+}, { timestamps: true });
+
 const SocialAccountSchema = new Schema({
   platform: { type: String, required: true, enum: ['facebook', 'instagram', 'x', 'tiktok'] },
   accountId: { type: String, required: true },
@@ -11,10 +38,21 @@ const SocialAccountSchema = new Schema({
   profilePicture: { type: String },
 }, { timestamps: true });
 
+const PostTargetSchema = new Schema({
+  platform: { type: String, required: true, enum: ['facebook', 'instagram', 'x', 'tiktok'] },
+  pageId: { type: String },
+  pageName: { type: String },
+  status: { type: String, enum: ['pending', 'posted', 'failed'], default: 'pending' },
+  externalPostId: { type: String },
+  error: { type: String },
+  postedAt: { type: Date },
+}, { _id: false });
+
 const PostSchema = new Schema({
   content: { type: String, required: true },
   mediaUrls: [{ type: String }],
   platforms: [{ type: String, enum: ['facebook', 'instagram', 'x', 'tiktok'] }],
+  targets: [PostTargetSchema],
   scheduledFor: { type: Date },
   status: { type: String, enum: ['draft', 'scheduled', 'posted', 'failed'], default: 'draft' },
   aiGenerated: { type: Boolean, default: false },
@@ -39,6 +77,7 @@ const ProcessedArticleSchema = new Schema({
   postedPlatforms: [{ type: String, enum: ['facebook', 'instagram', 'x', 'tiktok'] }],
 }, { timestamps: true });
 
+export const FacebookPage = models.FacebookPage || model('FacebookPage', FacebookPageSchema);
 export const SocialAccount = models.SocialAccount || model('SocialAccount', SocialAccountSchema);
 export const Post = models.Post || model('Post', PostSchema);
 export const NewsSource = models.NewsSource || model('NewsSource', NewsSourceSchema);
