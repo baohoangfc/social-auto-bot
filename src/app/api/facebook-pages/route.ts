@@ -39,10 +39,9 @@ function normalizeStringArray(value: unknown): string[] {
 }
 
 function buildPageUpdate(payload: PagePayload) {
-  return {
+  const update: Record<string, unknown> = {
     pageId: payload.pageId?.trim(),
     pageName: payload.pageName?.trim(),
-    pageAccessToken: payload.pageAccessToken?.trim(),
     tokenExpiresAt: payload.tokenExpiresAt ? new Date(payload.tokenExpiresAt) : undefined,
     profilePicture: payload.profilePicture?.trim(),
     category: payload.category?.trim(),
@@ -61,6 +60,13 @@ function buildPageUpdate(payload: PagePayload) {
       defaultScheduleTimes: normalizeStringArray(payload.postingSettings?.defaultScheduleTimes),
     },
   };
+
+  const token = payload.pageAccessToken?.trim();
+  if (token) {
+    update.pageAccessToken = token;
+  }
+
+  return update;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -71,7 +77,11 @@ export async function GET() {
   try {
     await connectDB();
     const pages = await FacebookPage.find({}).sort({ createdAt: -1 }).lean();
-    return NextResponse.json({ success: true, pages });
+    const safePages = pages.map(({ pageAccessToken: _pageAccessToken, ...page }) => ({
+      ...page,
+      hasPageAccessToken: Boolean(_pageAccessToken),
+    }));
+    return NextResponse.json({ success: true, pages: safePages });
   } catch (error) {
     console.error('Facebook Pages GET Error:', error);
     return NextResponse.json({ success: false, error: getErrorMessage(error) }, { status: 500 });
