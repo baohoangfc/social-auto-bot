@@ -25,6 +25,7 @@ type FacebookPageRecord = {
   pageId: string;
   pageName: string;
   pageAccessToken?: string;
+  hasPageAccessToken?: boolean;
   profilePicture?: string;
   category?: string;
   isActive: boolean;
@@ -110,7 +111,9 @@ export default function Dashboard() {
   const [facebookPages, setFacebookPages] = useState<FacebookPageRecord[]>([]);
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
   const [pageForm, setPageForm] = useState<FacebookPageForm>(emptyPageForm);
+  const [editingPageObjectId, setEditingPageObjectId] = useState<string | null>(null);
   const [savingPage, setSavingPage] = useState(false);
+  const [facebookConnectNotice, setFacebookConnectNotice] = useState('');
 
   const [sources, setSources] = useState<NewsSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<NewsSource | null>(null);
@@ -127,6 +130,23 @@ export default function Dashboard() {
   useEffect(() => {
     fetchSources();
     fetchFacebookPages();
+
+    const params = new URLSearchParams(window.location.search);
+    const connectStatus = params.get('facebookConnect');
+    if (connectStatus === 'success') {
+      const pageCount = params.get('pages') || '0';
+      setFacebookConnectNotice(`Đã kết nối Facebook và đồng bộ ${pageCount} Page.`);
+    } else if (connectStatus === 'error') {
+      setFacebookConnectNotice(params.get('message') || 'Không thể kết nối Facebook.');
+    }
+
+    if (connectStatus) {
+      params.delete('facebookConnect');
+      params.delete('pages');
+      params.delete('message');
+      const cleanUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      window.history.replaceState({}, '', cleanUrl);
+    }
   }, []);
 
   const fetchSources = async () => {
@@ -171,16 +191,17 @@ export default function Dashboard() {
   };
 
   const handleSaveFacebookPage = async () => {
-    if (!pageForm.pageId || !pageForm.pageName || !pageForm.pageAccessToken) {
+    if (!pageForm.pageId || !pageForm.pageName || (!editingPageObjectId && !pageForm.pageAccessToken)) {
       return alert('Vui lòng nhập Page ID, Page Name và Page Access Token.');
     }
 
     setSavingPage(true);
     try {
       const res = await fetch('/api/facebook-pages', {
-        method: 'POST',
+        method: editingPageObjectId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          _id: editingPageObjectId || undefined,
           pageId: pageForm.pageId,
           pageName: pageForm.pageName,
           pageAccessToken: pageForm.pageAccessToken,
@@ -201,8 +222,9 @@ export default function Dashboard() {
         return;
       }
       setPageForm(emptyPageForm);
+      setEditingPageObjectId(null);
       await fetchFacebookPages();
-      alert('Đã lưu Facebook Page.');
+      alert(editingPageObjectId ? 'Đã cập nhật Facebook Page.' : 'Đã lưu Facebook Page.');
     } catch (err) {
       console.error(err);
       alert(getErrorMessage(err));
@@ -212,10 +234,11 @@ export default function Dashboard() {
   };
 
   const handleEditPage = (page: FacebookPageRecord) => {
+    setEditingPageObjectId(page._id || null);
     setPageForm({
       pageId: page.pageId,
       pageName: page.pageName,
-      pageAccessToken: page.pageAccessToken || '',
+      pageAccessToken: '',
       category: page.category || '',
       isActive: page.isActive,
       topic: page.contentProfile?.topic || '',
@@ -328,7 +351,8 @@ export default function Dashboard() {
         </div>
         <div className="actions">
           <button className="btn btn-ghost" onClick={fetchFacebookPages}><RefreshCw size={16} /> Refresh Pages</button>
-          <button className="btn btn-primary" onClick={() => document.getElementById('facebook-pages')?.scrollIntoView({ behavior: 'smooth' })}><Sparkles size={16} /> Connect Page</button>
+          <a className="btn btn-primary" href="/api/auth/facebook/start"><Users size={16} /> Connect Facebook</a>
+          <button className="btn btn-ghost" onClick={() => document.getElementById('facebook-pages')?.scrollIntoView({ behavior: 'smooth' })}><Sparkles size={16} /> Manual Page</button>
         </div>
       </header>
 
@@ -351,6 +375,16 @@ export default function Dashboard() {
         <h2 className="card-title card-title-main">
           <Users size={20} /> Facebook Page Manager
         </h2>
+        {facebookConnectNotice && (
+          <div className="notice-card" style={{ marginBottom: '1rem' }}>{facebookConnectNotice}</div>
+        )}
+        <div className="connect-card" style={{ marginBottom: '1rem' }}>
+          <div>
+            <strong>Kết nối bằng Facebook Login</strong>
+            <p>Đồng bộ tự động các Page bạn quản lý và lấy Page Access Token để bot có thể đăng bài.</p>
+          </div>
+          <a className="btn btn-primary" href="/api/auth/facebook/start"><Users size={16} /> Connect Facebook</a>
+        </div>
         <div className="grid" style={{ gridTemplateColumns: 'minmax(280px, 0.9fr) minmax(320px, 1.1fr)' }}>
           <div className="card" style={{ padding: '1rem' }}>
             <label className="field-label">Page ID</label>
@@ -358,7 +392,7 @@ export default function Dashboard() {
             <label className="field-label">Page Name</label>
             <input className="input-field" value={pageForm.pageName} onChange={(e) => setPageForm({ ...pageForm, pageName: e.target.value })} placeholder="Tên Facebook Page" />
             <label className="field-label">Page Access Token</label>
-            <input className="input-field" type="password" value={pageForm.pageAccessToken} onChange={(e) => setPageForm({ ...pageForm, pageAccessToken: e.target.value })} placeholder="EAAB..." />
+            <input className="input-field" type="password" value={pageForm.pageAccessToken} onChange={(e) => setPageForm({ ...pageForm, pageAccessToken: e.target.value })} placeholder={editingPageObjectId ? 'Để trống nếu không đổi token' : 'EAAB...'} />
             <label className="field-label">Category</label>
             <input className="input-field" value={pageForm.category} onChange={(e) => setPageForm({ ...pageForm, category: e.target.value })} placeholder="News, Business, Community..." />
             <label className="checkbox-row">
@@ -379,9 +413,9 @@ export default function Dashboard() {
             <textarea className="input-field" rows={3} value={pageForm.prompt} onChange={(e) => setPageForm({ ...pageForm, prompt: e.target.value })} placeholder="Quy định riêng khi AI viết cho Page này..." />
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button className="btn btn-primary" onClick={handleSaveFacebookPage} disabled={savingPage}>
-                {savingPage ? <Loader2 className="animate-spin" /> : <Sparkles size={16} />} Save Page
+                {savingPage ? <Loader2 className="animate-spin" /> : <Sparkles size={16} />} {editingPageObjectId ? 'Update Page' : 'Save Page'}
               </button>
-              <button className="btn btn-ghost" onClick={() => setPageForm(emptyPageForm)}>Clear</button>
+              <button className="btn btn-ghost" onClick={() => { setPageForm(emptyPageForm); setEditingPageObjectId(null); }}>Clear</button>
             </div>
           </div>
         </div>
@@ -393,7 +427,7 @@ export default function Dashboard() {
             <div key={page.pageId} className={`page-card ${selectedPageIds.includes(page.pageId) ? 'selected-page' : ''}`}>
               <div>
                 <strong>{page.pageName}</strong>
-                <p>{page.category || 'No category'} · {page.isActive ? 'Active' : 'Inactive'}</p>
+                <p>{page.category || 'No category'} · {page.isActive ? 'Active' : 'Inactive'} · {page.hasPageAccessToken ? 'Token saved' : 'Missing token'}</p>
                 <p>Topic: {page.contentProfile?.topic || 'Chưa cấu hình'} · Tone: {page.contentProfile?.tone || 'Default'}</p>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
